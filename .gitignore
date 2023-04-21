@@ -1,0 +1,14 @@
+node_modules
+.env
+coverage
+coverage.json
+typechain
+typechain-types
+.solhint.json
+.solhintignore
+
+# Hardhat files
+cache
+artifacts
+deployments
+gas-report.txt
