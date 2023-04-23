@@ -4,23 +4,23 @@ pragma solidity >=0.8.0 <0.9.0;
 import "./Declaration.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";
 import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
-import "@openzeppelin/contracts/utils/Counters.sol";
 import "@openzeppelin/contracts/utils/math/SafeMath.sol";
 
 contract IDO is Ownable, ReentrancyGuard {
     ////////////////////////////////////////////
     /////////////   错误提示  ///////////////////
     ////////////////////////////////////////////
-    error AddressZero();
-    error NotExsit();
-    error EarlyTime();
+    error InvalidAddress();
+    error AlreadyBound();
+    error NotBind();
+    error SetLater();
     error IDOisOver();
     error CallerIsNotUser();
     error AmountError();
     error AlreadyIDO();
     error NotIDO();
-    error NotEnoughToken();
     error AlreadyWithdraw();
+    error InsufficientBalance();
     ////////////////////////////////////////////
     ///////////////   事件  /////////////////////
     ////////////////////////////////////////////
@@ -35,8 +35,16 @@ contract IDO is Ownable, ReentrancyGuard {
     ////////////////////////////////////////////
     ///////////////   修饰器  ///////////////////
     ////////////////////////////////////////////
+    //caller不可是合约
     modifier callerIsUser() {
         if (tx.origin != msg.sender) revert CallerIsNotUser();
+        _;
+    }
+
+    //必须已绑定上级
+    modifier Bound() {
+        if (addressToParticipant[msg.sender].firstReferrerAddress <= address(0))
+            revert NotBind();
         _;
     }
     ////////////////////////////////////////////
@@ -44,16 +52,13 @@ contract IDO is Ownable, ReentrancyGuard {
     ///////////////////////////////////////////
     //参与者
     Participant[] public participant;
-    //计数参与人数量
-    using Counters for Counters.Counter;
-    Counters.Counter private _participantNumber;
     //用于计算百分数
     using SafeMath for uint256;
 
     //总额度
     uint256 private immutable TOTALAMOUNT;
     //每日限额
-    uint256 private immutable DAILYAMOUNT;
+    // uint256 private immutable DAILYAMOUNT;
     //已购额度
     uint256 private purchasedAmount;
     //单价
@@ -68,6 +73,9 @@ contract IDO is Ownable, ReentrancyGuard {
     address private customTokenAddress;
     //参与人数
     uint256 private participantNumber;
+    //实例化
+    IERC20 private immutable customToken = IERC20(address(customTokenAddress));
+    IERC20 private immutable usdt = IERC20(address(usdtAddress));
 
     ////////////////////////////////////////////
     ////////////////  映射  ////////////////////
@@ -80,14 +88,14 @@ contract IDO is Ownable, ReentrancyGuard {
     ////////////////////////////////////////////
     constructor(
         uint256 _totalAmount,
-        uint256 _dailyAmount,
+        /* uint256 _dailyAmount,*/
         uint256 _idoPrice,
         uint256 _endTime,
         address _usdtAddress,
         address _customTokenAddress
     ) {
         TOTALAMOUNT = _totalAmount;
-        DAILYAMOUNT = _dailyAmount;
+        /*DAILYAMOUNT = _dailyAmount;*/
         IDOPRICE = _idoPrice;
         endTime = _endTime;
         usdtAddress = _usdtAddress;
@@ -99,7 +107,7 @@ contract IDO is Ownable, ReentrancyGuard {
     ////////////////////////////////////////////
     //设定结束时间
     function setEndTime(uint256 _newTime) external onlyOwner {
-        if (_newTime < block.timestamp) revert EarlyTime();
+        if (_newTime < block.timestamp) revert SetLater();
         endTime = _newTime;
     }
 
@@ -108,7 +116,6 @@ contract IDO is Ownable, ReentrancyGuard {
         //存入用户信息
         participant.push(
             Participant({
-                selfAddress: msg.sender,
                 firstReferrerAddress: msg.sender,
                 secondReferrerAddress: msg.sender,
                 ido: false,
@@ -120,81 +127,70 @@ contract IDO is Ownable, ReentrancyGuard {
         addressToParticipant[msg.sender] = participant[0];
     }
 
-    //绑定上级
+    //绑定(注册)
     function bindReferrer(address _referrerAddress) external callerIsUser {
         //不可为空地址
-        if (_referrerAddress == address(0)) revert AddressZero();
-        //地址必须已注册
+        if (_referrerAddress == address(0)) revert InvalidAddress();
+        //caller必须没有绑定过上级
+        if (addressToParticipant[msg.sender].firstReferrerAddress > address(0))
+            revert AlreadyBound();
+        //输入的地址必须有上级
         if (
-            addressToParticipant[_referrerAddress].selfAddress !=
-            _referrerAddress
-        ) revert NotExsit();
+            addressToParticipant[_referrerAddress].firstReferrerAddress <=
+            address(0)
+        ) revert InvalidAddress();
         //结束无法绑定
         if (endTime < block.timestamp) revert IDOisOver();
-        //绑定一级推荐人; 如果绑定的上级也存在上级，则二级推荐人也会绑定
-        address _secondReferrerAddress;
-        uint256 i;
-        for (i = 0; i <= participant.length; i++) {
-            if (
-                participant[i].selfAddress == _referrerAddress &&
-                participant[i].firstReferrerAddress != address(0)
-            ) {
-                _secondReferrerAddress = participant[i].firstReferrerAddress;
-            }
-        }
-        //存入用户信息
+        //referrer为用户想要绑定上级的实例
+        Participant memory referrer = addressToParticipant[_referrerAddress];
+        //存入用户信息;绑定一级推荐人; 如果绑定的上级也存在上级，则二级推荐人也会绑定
         participant.push(
             Participant({
-                selfAddress: msg.sender,
                 firstReferrerAddress: _referrerAddress,
-                secondReferrerAddress: _secondReferrerAddress,
+                secondReferrerAddress: referrer.firstReferrerAddress,
                 ido: false,
                 tokenAmount: 0,
                 withdrawal: false
             })
         );
         //保存映射
-        addressToParticipant[msg.sender] = participant[i];
+        addressToParticipant[msg.sender] = participant[participant.length];
         //事件
-        emit bindSuc(msg.sender, _referrerAddress, _secondReferrerAddress);
+        emit bindSuc(
+            msg.sender,
+            _referrerAddress,
+            referrer.firstReferrerAddress
+        );
     }
 
     //ido
-    function ido(uint256 amount) external payable nonReentrant {
+    function ido(uint256 amount) external payable nonReentrant Bound {
         //限额 DAILYAMOUNT
-        //怎么写？？
 
         //参与额度必须为100、300、500
         if (
             amount != 100 * 1e18 || amount != 300 * 1e18 || amount != 500 * 1e18
         ) revert AmountError();
-        IERC20 usdt = IERC20(address(usdtAddress));
         //赋值用户信息
         Participant memory idoer = addressToParticipant[msg.sender];
         //参与者ido状态必须为false
         if (idoer.ido == true) revert AlreadyIDO();
-        //推荐人返usdt的比例
+        //发送usdt的比例
+        uint256 fundAddressAmount = amount.mul(95).div(100);
         uint256 firstReferrerAmount = amount.mul(3).div(100);
         uint256 secondReferrerAmount = amount.mul(2).div(100);
-        //一定有一级推荐人，先给一级奖励3%
+        //一定有一级和二级推荐人，一级奖励3%, 二级奖励2%, 剩余的全部给资金地址
+        usdt.transfer(fundAddress, fundAddressAmount);
         usdt.transfer(idoer.firstReferrerAddress, firstReferrerAmount);
-        //判断是否有二级推荐人，若有给2%，若无剩下的全给资金地址
-        if (idoer.secondReferrerAddress != address(0)) {
-            usdt.transfer(idoer.secondReferrerAddress, secondReferrerAmount);
-            usdt.transfer(
-                fundAddress,
-                amount.sub(firstReferrerAmount).sub(secondReferrerAmount)
-            );
-        } else {
-            usdt.transfer(fundAddress, amount.sub(firstReferrerAmount));
-        }
+        usdt.transfer(idoer.secondReferrerAddress, secondReferrerAmount);
         //修改用户可提取token的数量
-        addressToParticipant[msg.sender].tokenAmount = amount.div(IDOPRICE);
+        addressToParticipant[msg.sender].tokenAmount =
+            amount.div(IDOPRICE) *
+            1e18;
         //修改参与状态, 默认false, true则不可参与
         addressToParticipant[msg.sender].ido = true;
         //记录参与人数+1
-        _participantNumber.increment();
-        participantNumber = _participantNumber.current();
+        participantNumber += 1;
         //已购金额+amount
         purchasedAmount += amount;
         //事件
@@ -202,7 +198,7 @@ contract IDO is Ownable, ReentrancyGuard {
     }
 
     //用户提取token
-    function tokenWithdraw() external nonReentrant {
+    function tokenWithdraw() external nonReentrant Bound {
         //赋值用户信息
         Participant memory idoer = addressToParticipant[msg.sender];
         //要求用户参与ido
@@ -210,24 +206,24 @@ contract IDO is Ownable, ReentrancyGuard {
         //要求用户未提取过token
         if (idoer.withdrawal == true) revert AlreadyWithdraw();
         //tokenAmount不为0
-        if (idoer.tokenAmount == 0) revert NotEnoughToken();
+        if (idoer.tokenAmount == 0) revert InsufficientBalance();
         //修改用户token数量信息
         addressToParticipant[msg.sender].tokenAmount = 0;
         //修改用户提取状态信息
         addressToParticipant[msg.sender].withdrawal = true;
         //发送token给用户
-        IERC20 customToken = IERC20(address(customTokenAddress));
         customToken.transferFrom(address(this), msg.sender, idoer.tokenAmount);
         //事件
         emit withdrawSuc(msg.sender, idoer.tokenAmount);
     }
 
-    //提取合约剩余token
+    //提取合约剩余token至资金地址
     function withdraw() external onlyOwner {
-        IERC20 customToken = IERC20(address(customTokenAddress));
+        if (customToken.balanceOf(address(this)) == 0)
+            revert InsufficientBalance();
         customToken.transferFrom(
             address(this),
-            msg.sender,
+            fundAddress,
             customToken.balanceOf(address(this))
         );
         emit ownerWithdraw(customToken.balanceOf(address(this)));
@@ -242,9 +238,9 @@ contract IDO is Ownable, ReentrancyGuard {
     }
 
     //获取每日限额
-    function getDailyAmount() public view returns (uint256) {
-        return DAILYAMOUNT;
-    }
+    // function getDailyAmount() public view returns (uint256) {
+    //     return DAILYAMOUNT;
+    // }
 
     //获取已购买额度
     function getPurchasedAmount() public view returns (uint256) {
@@ -271,5 +267,10 @@ contract IDO is Ownable, ReentrancyGuard {
     //获取截止时间
     function getEndTime() public view returns (uint256) {
         return endTime;
+    }
+
+    //获取ido代币地址
+    function getTokenAddress() public view returns (address) {
+        return customTokenAddress;
     }
 }
