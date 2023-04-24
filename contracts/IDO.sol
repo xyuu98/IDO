@@ -14,13 +14,15 @@ contract IDO is Ownable, ReentrancyGuard {
     error AlreadyBound();
     error NotBind();
     error SetLater();
-    error IDOisOver();
+    error Ended();
+    error NotEnded();
     error CallerIsNotUser();
     error AmountError();
     error AlreadyIDO();
     error NotIDO();
     error AlreadyWithdraw();
     error InsufficientBalance();
+    error InsufficientAmount();
     ////////////////////////////////////////////
     ///////////////   事件  /////////////////////
     ////////////////////////////////////////////
@@ -47,6 +49,13 @@ contract IDO is Ownable, ReentrancyGuard {
             revert NotBind();
         _;
     }
+
+    //结束无法使用
+    modifier NotEnd() {
+        if (endTime < block.timestamp) revert Ended();
+        _;
+    }
+
     ////////////////////////////////////////////
     //////////////  状态变量  ///////////////////
     ///////////////////////////////////////////
@@ -128,10 +137,12 @@ contract IDO is Ownable, ReentrancyGuard {
     }
 
     //绑定(注册)
-    function bindReferrer(address _referrerAddress) external callerIsUser {
+    function bindReferrer(
+        address _referrerAddress
+    ) external callerIsUser NotEnd {
         //不可为空地址
         if (_referrerAddress == address(0)) revert InvalidAddress();
-        //caller必须没有绑定过上级
+        //caller必须没有绑定过上级, 即只能绑定一次
         if (addressToParticipant[msg.sender].firstReferrerAddress > address(0))
             revert AlreadyBound();
         //输入的地址必须有上级
@@ -139,8 +150,6 @@ contract IDO is Ownable, ReentrancyGuard {
             addressToParticipant[_referrerAddress].firstReferrerAddress <=
             address(0)
         ) revert InvalidAddress();
-        //结束无法绑定
-        if (endTime < block.timestamp) revert IDOisOver();
         //referrer为用户想要绑定上级的实例
         Participant memory referrer = addressToParticipant[_referrerAddress];
         //存入用户信息;绑定一级推荐人; 如果绑定的上级也存在上级，则二级推荐人也会绑定
@@ -164,16 +173,19 @@ contract IDO is Ownable, ReentrancyGuard {
     }
 
     //ido
-    function ido(uint256 amount) external payable nonReentrant Bound {
+    function ido(uint256 amount) external payable nonReentrant Bound NotEnd {
         //限额 DAILYAMOUNT
 
+        //购买后的总已购额度不可超过总额度
+        if (amount + purchasedAmount > TOTALAMOUNT * IDOPRICE)
+            revert InsufficientAmount();
         //参与额度必须为100、300、500
         if (
             amount != 100 * 1e18 || amount != 300 * 1e18 || amount != 500 * 1e18
         ) revert AmountError();
         //赋值用户信息
         Participant memory idoer = addressToParticipant[msg.sender];
-        //参与者ido状态必须为false
+        //参与者ido状态必须为false,即一个用户只能参与一次ido
         if (idoer.ido == true) revert AlreadyIDO();
         //发送usdt的比例
         uint256 fundAddressAmount = amount.mul(95).div(100);
@@ -199,6 +211,8 @@ contract IDO is Ownable, ReentrancyGuard {
 
     //用户提取token
     function tokenWithdraw() external nonReentrant Bound {
+        //ido结束才可提取
+        if (endTime > block.timestamp) revert NotEnded();
         //赋值用户信息
         Participant memory idoer = addressToParticipant[msg.sender];
         //要求用户参与ido
