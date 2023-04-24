@@ -6,6 +6,7 @@ typechain
 typechain-types
 .solhint.json
 .solhintignore
+.vscode
 
 # Hardhat files
 cache

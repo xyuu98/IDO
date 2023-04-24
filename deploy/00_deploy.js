@@ -12,13 +12,15 @@ module.exports = async ({ getNamedAccounts, deployments }) => {
     if (!developmentChains.includes(network.name)) {
         let initialSupply = networkConfig[chainId]["initialSupply"]
         log("Deploying TestToken and waiting for confirmations...")
-        const TestToken = await deploy("TestToken", {
+        await deploy("TestToken", {
             from: deployer,
             args: [initialSupply],
             log: true,
             waitConfirmations: network.config.blockConfirmations || 1,
         })
+        const TestToken = await ethers.getContract("TestToken", deployer)
         log(`TestToken deployed at ${TestToken.address}`)
+
         // let tokenAddress = networkConfig[chainId]["tokenAddress"]
         let totalAmount = networkConfig[chainId]["totalAmount"]
         // let limitedAmount = networkConfig[chainId]["limitedAmount"]
@@ -43,26 +45,34 @@ module.exports = async ({ getNamedAccounts, deployments }) => {
             waitConfirmations: network.config.blockConfirmations || 1,
         })
         log(`IDO deployed at ${IDO.address}`)
+
+        //Transfer token to IDO contract
+        log("----------------------------------------------------")
+        log("Transfer token to IDO contract...")
+        await TestToken.transfer(IDO.address, totalAmount)
+        log("Transfer TestToken succssed!")
     } else {
-        log("Deploying TestToken and waiting for confirmations...")
-        const UsdtTest = await deploy("UsdtTest", {
+        log("Deploying UsdtTest and waiting for confirmations...")
+        await deploy("UsdtTest", {
             from: deployer,
             args: [],
             log: true,
             waitConfirmations: network.config.blockConfirmations || 1,
         })
+        const UsdtTest = await ethers.getContract("UsdtTest", deployer)
         log(`UsdtTest deployed at ${UsdtTest.address}`)
         log("----------------------------------------------------")
         let UsdtTestAddress = UsdtTest.address
 
         let initialSupply = networkConfig[chainId]["initialSupply"]
         log("Deploying TestToken and waiting for confirmations...")
-        const TestToken = await deploy("TestToken", {
+        await deploy("TestToken", {
             from: deployer,
             args: [initialSupply],
             log: true,
             waitConfirmations: network.config.blockConfirmations || 1,
         })
+        const TestToken = await ethers.getContract("TestToken", deployer)
         log(`TestToken deployed at ${TestToken.address}`)
         let totalAmount = networkConfig[chainId]["totalAmount"]
         // let limitedAmount = networkConfig[chainId]["limitedAmount"]
@@ -86,6 +96,16 @@ module.exports = async ({ getNamedAccounts, deployments }) => {
             waitConfirmations: network.config.blockConfirmations || 1,
         })
         log(`IDO deployed at ${IDO.address}`)
+        log("----------------------------------------------------")
+        log("Transfer token to IDO contract...")
+        //Transfer token to IDO contract
+        await TestToken.transfer(IDO.address, totalAmount)
+        log("Transfer TestToken succssed!")
+        log("----------------------------------------------------")
+        log("Transfer UsdtTest to IDO contract...")
+        //Transfer UsdtTest to IDO contract
+        await UsdtTest.transfer(IDO.address, initialSupply)
+        log("Transfer UsdtTest succssed!")
     }
 
     //Verify
