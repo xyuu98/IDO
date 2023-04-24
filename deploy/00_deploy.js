@@ -11,15 +11,18 @@ module.exports = async ({ getNamedAccounts, deployments }) => {
     //Deploy
     if (!developmentChains.includes(network.name)) {
         let initialSupply = networkConfig[chainId]["initialSupply"]
-        log("Deploying TestToken and waiting for confirmations...")
-        await deploy("TestToken", {
+        log("Deploying MockCustomToken and waiting for confirmations...")
+        await deploy("MockCustomToken", {
             from: deployer,
             args: [initialSupply],
             log: true,
             waitConfirmations: network.config.blockConfirmations || 1,
         })
-        const TestToken = await ethers.getContract("TestToken", deployer)
-        log(`TestToken deployed at ${TestToken.address}`)
+        const MockCustomToken = await ethers.getContract(
+            "MockCustomToken",
+            deployer
+        )
+        log(`MockCustomToken deployed at ${MockCustomToken.address}`)
 
         // let tokenAddress = networkConfig[chainId]["tokenAddress"]
         let totalAmount = networkConfig[chainId]["totalAmount"]
@@ -27,7 +30,7 @@ module.exports = async ({ getNamedAccounts, deployments }) => {
         let price = networkConfig[chainId]["price"]
         let endTime = networkConfig[chainId]["endTime"]
         let usdtAddress = networkConfig[chainId]["usdtAddress"]
-        let tokenAddress = TestToken.address
+        let tokenAddress = MockCustomToken.address
 
         log("----------------------------------------------------")
         log("Deploying IDO and waiting for confirmations...")
@@ -46,39 +49,42 @@ module.exports = async ({ getNamedAccounts, deployments }) => {
         })
         log(`IDO deployed at ${IDO.address}`)
 
-        //Transfer token to IDO contract
-        log("----------------------------------------------------")
-        log("Transfer token to IDO contract...")
-        await TestToken.transfer(IDO.address, totalAmount)
-        log("Transfer TestToken succssed!")
+        // //Transfer token to IDO contract
+        // log("----------------------------------------------------")
+        // log("Transfer token to IDO contract...")
+        // await MockCustomToken.transfer(IDO.address, totalAmount)
+        // log("Transfer MockCustomToken succssed!")
     } else {
-        log("Deploying UsdtTest and waiting for confirmations...")
-        await deploy("UsdtTest", {
+        log("Deploying MockUSDT and waiting for confirmations...")
+        await deploy("MockUSDT", {
             from: deployer,
             args: [],
             log: true,
             waitConfirmations: network.config.blockConfirmations || 1,
         })
-        const UsdtTest = await ethers.getContract("UsdtTest", deployer)
-        log(`UsdtTest deployed at ${UsdtTest.address}`)
+        const MockUSDT = await ethers.getContract("MockUSDT", deployer)
+        log(`MockUSDT deployed at ${MockUSDT.address}`)
         log("----------------------------------------------------")
-        let UsdtTestAddress = UsdtTest.address
+        let MockUSDTAddress = MockUSDT.address
 
         let initialSupply = networkConfig[chainId]["initialSupply"]
-        log("Deploying TestToken and waiting for confirmations...")
-        await deploy("TestToken", {
+        log("Deploying MockCustomToken and waiting for confirmations...")
+        await deploy("MockCustomToken", {
             from: deployer,
             args: [initialSupply],
             log: true,
             waitConfirmations: network.config.blockConfirmations || 1,
         })
-        const TestToken = await ethers.getContract("TestToken", deployer)
-        log(`TestToken deployed at ${TestToken.address}`)
+        const MockCustomToken = await ethers.getContract(
+            "MockCustomToken",
+            deployer
+        )
+        log(`MockCustomToken deployed at ${MockCustomToken.address}`)
         let totalAmount = networkConfig[chainId]["totalAmount"]
         // let limitedAmount = networkConfig[chainId]["limitedAmount"]
         let price = networkConfig[chainId]["price"]
         let endTime = networkConfig[chainId]["endTime"]
-        let tokenAddress = TestToken.address
+        let tokenAddress = MockCustomToken.address
 
         log("----------------------------------------------------")
         log("Deploying IDO and waiting for confirmations...")
@@ -89,23 +95,24 @@ module.exports = async ({ getNamedAccounts, deployments }) => {
                 /*limitedAmount,*/
                 price,
                 endTime,
-                UsdtTestAddress,
+                MockUSDTAddress,
                 tokenAddress,
             ],
             log: true,
             waitConfirmations: network.config.blockConfirmations || 1,
         })
         log(`IDO deployed at ${IDO.address}`)
-        log("----------------------------------------------------")
-        log("Transfer token to IDO contract...")
-        //Transfer token to IDO contract
-        await TestToken.transfer(IDO.address, totalAmount)
-        log("Transfer TestToken succssed!")
-        log("----------------------------------------------------")
-        log("Transfer UsdtTest to IDO contract...")
-        //Transfer UsdtTest to IDO contract
-        await UsdtTest.transfer(IDO.address, initialSupply)
-        log("Transfer UsdtTest succssed!")
+
+        // log("----------------------------------------------------")
+        // log("Transfer token to IDO contract...")
+        // //Transfer token to IDO contract
+        // await MockCustomToken.transfer(IDO.address, totalAmount)
+        // log("Transfer MockCustomToken succssed!")
+        // log("----------------------------------------------------")
+        // log("Transfer MockUSDT to IDO contract...")
+        // //Transfer MockUSDT to IDO contract
+        // await MockUSDT.transfer(IDO.address, initialSupply)
+        // log("Transfer MockUSDT succssed!")
     }
 
     //Verify
@@ -114,7 +121,7 @@ module.exports = async ({ getNamedAccounts, deployments }) => {
         (chainId == 11155111 || chainId == 1) &&
         process.env.ETHERSCAN_API_KEY
     ) {
-        await verify(TestToken.address, [initialSupply])
+        await verify(MockCustomToken.address, [initialSupply])
         await verify(IDO.address, [
             totalAmount,
             /*limitedAmount,*/
@@ -129,7 +136,7 @@ module.exports = async ({ getNamedAccounts, deployments }) => {
         (chainId == 97 || chainId == 56) &&
         process.env.BSCSCAN_API_KEY
     ) {
-        await verify(TestToken.address, [initialSupply])
+        await verify(MockCustomToken.address, [initialSupply])
         await verify(IDO.address, [
             totalAmount,
             /*limitedAmount,*/

@@ -71,8 +71,10 @@ contract IDO is Ownable, ReentrancyGuard {
     // uint256 private immutable DAILYAMOUNT;
     //已购额度
     uint256 private purchasedAmount;
+
     // //今日已购额度
     // uint256 private dailyPurchasedAmount;
+
     //单价
     uint256 private immutable IDOPRICE;
     //结束时间
