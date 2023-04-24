@@ -251,6 +251,13 @@ contract IDO is Ownable, ReentrancyGuard {
         return addressToParticipant[_participant];
     }
 
+    //通过用户钱包地址获取用户信息
+    function getInfoViaIndex(
+        uint256 _index
+    ) public view returns (Participant memory) {
+        return participant[_index];
+    }
+
     //获取截止时间
     function getEndTime() public view returns (uint256) {
         return endTime;
