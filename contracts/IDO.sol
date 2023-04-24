@@ -67,12 +67,12 @@ contract IDO is Ownable, ReentrancyGuard {
 
     //总额度
     uint256 private immutable TOTALAMOUNT;
-    //每日限额
-    uint256 private immutable DAILYAMOUNT;
+    // //每日限额
+    // uint256 private immutable DAILYAMOUNT;
     //已购额度
     uint256 private purchasedAmount;
-    //今日已购额度
-    uint256 private dailyPurchasedAmount;
+    // //今日已购额度
+    // uint256 private dailyPurchasedAmount;
     //单价
     uint256 private immutable IDOPRICE;
     //结束时间
@@ -100,14 +100,14 @@ contract IDO is Ownable, ReentrancyGuard {
     ////////////////////////////////////////////
     constructor(
         uint256 _totalAmount,
-        uint256 _dailyAmount,
+        /*uint256 _dailyAmount,*/
         uint256 _idoPrice,
         uint256 _endTime,
         address _usdtAddress,
         address _customTokenAddress
     ) {
         TOTALAMOUNT = _totalAmount;
-        DAILYAMOUNT = _dailyAmount;
+        /*DAILYAMOUNT = _dailyAmount;*/
         IDOPRICE = _idoPrice;
         endTime = _endTime;
         usdtAddress = _usdtAddress;
@@ -123,11 +123,11 @@ contract IDO is Ownable, ReentrancyGuard {
         endTime = _newTime;
     }
 
-    //重制每日限定购买额度, 需要每日定时触发
-    function resetDailyAmount() external onlyOwner {
-        if (dailyPurchasedAmount == 0) revert AmountZero();
-        dailyPurchasedAmount = 0;
-    }
+    // //重制每日限定购买额度, 需要每日定时触发
+    // function resetDailyAmount() external onlyOwner {
+    //     if (dailyPurchasedAmount == 0) revert AmountZero();
+    //     dailyPurchasedAmount = 0;
+    // }
 
     //设定初始账号,用这个地址开始进行推广
     function setFirstUser() external onlyOwner {
@@ -183,9 +183,10 @@ contract IDO is Ownable, ReentrancyGuard {
 
     //ido
     function ido(uint256 amount) external payable nonReentrant Bound NotEnd {
-        //限额 DAILYAMOUNT
-        if (amount + dailyPurchasedAmount > DAILYAMOUNT * IDOPRICE)
-            revert InsufficientAmount();
+        // //限额 DAILYAMOUNT
+        // if (amount + dailyPurchasedAmount > DAILYAMOUNT * IDOPRICE)
+        //     revert InsufficientAmount();
+
         //购买后的总已购额度不可超过总额度
         if (amount + purchasedAmount > TOTALAMOUNT * IDOPRICE)
             revert InsufficientAmount();
@@ -215,8 +216,8 @@ contract IDO is Ownable, ReentrancyGuard {
         participantNumber += 1;
         //已购金额+amount
         purchasedAmount += amount;
-        //今日已购金额+amount
-        dailyPurchasedAmount += amount;
+        // //今日已购金额+amount
+        // dailyPurchasedAmount += amount;
         //事件
         emit idoSuc(msg.sender, amount);
     }
@@ -263,20 +264,20 @@ contract IDO is Ownable, ReentrancyGuard {
         return TOTALAMOUNT;
     }
 
-    //获取每日限额
-    function getDailyAmount() public view returns (uint256) {
-        return DAILYAMOUNT;
-    }
+    // //获取每日限额
+    // function getDailyAmount() public view returns (uint256) {
+    //     return DAILYAMOUNT;
+    // }
 
     //获取已购买额度
     function getPurchasedAmount() public view returns (uint256) {
         return purchasedAmount;
     }
 
-    //获取今日已购买额度
-    function getDailyPurchasedAmount() public view returns (uint256) {
-        return dailyPurchasedAmount;
-    }
+    // //获取今日已购买额度
+    // function getDailyPurchasedAmount() public view returns (uint256) {
+    //     return dailyPurchasedAmount;
+    // }
 
     //获取单价
     function getIdoPrice() public view returns (uint256) {
