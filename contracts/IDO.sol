@@ -7,9 +7,7 @@ import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
 import "@openzeppelin/contracts/utils/math/SafeMath.sol";
 
 contract IDO is Ownable, ReentrancyGuard {
-    ////////////////////////////////////////////
-    /////////////   错误提示  ///////////////////
-    ////////////////////////////////////////////
+    //错误提示：
     error InvalidAddress();
     error AlreadyBound();
     error NotBind();
@@ -24,9 +22,8 @@ contract IDO is Ownable, ReentrancyGuard {
     error AlreadyWithdraw();
     error InsufficientBalance();
     error InsufficientAmount();
-    ////////////////////////////////////////////
-    ///////////////   事件  /////////////////////
-    ////////////////////////////////////////////
+
+    //事件：
     event bindSuc(
         address indexed participantself,
         address indexed firstReferrer,
@@ -35,46 +32,34 @@ contract IDO is Ownable, ReentrancyGuard {
     event idoSuc(address indexed participantself, uint256 amount);
     event withdrawSuc(address indexed participantself, uint256 tokenAmount);
     event ownerWithdraw(uint256 indexed tokenAmount);
-    ////////////////////////////////////////////
-    ///////////////   修饰器  ///////////////////
-    ////////////////////////////////////////////
+
+    //修饰器：
     //caller不可是合约
     modifier callerIsUser() {
         if (tx.origin != msg.sender) revert CallerIsNotUser();
         _;
     }
-
     //必须已绑定上级
     modifier Bound() {
         if (addressToParticipant[msg.sender].firstReferrerAddress <= address(0))
             revert NotBind();
         _;
     }
-
     //结束无法使用
     modifier NotEnd() {
         if (endTime < block.timestamp) revert Ended();
         _;
     }
 
-    ////////////////////////////////////////////
-    //////////////  状态变量  ///////////////////
-    ///////////////////////////////////////////
+    //状态变量：
     //参与者
     Participant[] public participant;
     //用于计算百分数
     using SafeMath for uint256;
-
     //总额度
     uint256 private immutable TOTALAMOUNT;
-    // //每日限额
-    // uint256 private immutable DAILYAMOUNT;
     //已购额度
     uint256 private purchasedAmount;
-
-    // //今日已购额度
-    // uint256 private dailyPurchasedAmount;
-
     //单价
     uint256 private immutable IDOPRICE;
     //结束时间
@@ -91,45 +76,31 @@ contract IDO is Ownable, ReentrancyGuard {
     IERC20 private immutable customToken = IERC20(address(customTokenAddress));
     IERC20 private immutable usdt = IERC20(address(usdtAddress));
 
-    ////////////////////////////////////////////
-    ////////////////  映射  ////////////////////
-    ///////////////////////////////////////////
+    //映射：
     //通过钱包地址映射到用户信息
     mapping(address => Participant) addressToParticipant;
 
-    ////////////////////////////////////////////
-    ///////////////  初始化  ////////////////////
-    ////////////////////////////////////////////
+    //初始化：
     constructor(
         uint256 _totalAmount,
-        /*uint256 _dailyAmount,*/
         uint256 _idoPrice,
         uint256 _endTime,
         address _usdtAddress,
         address _customTokenAddress
     ) {
         TOTALAMOUNT = _totalAmount;
-        /*DAILYAMOUNT = _dailyAmount;*/
         IDOPRICE = _idoPrice;
         endTime = _endTime;
         usdtAddress = _usdtAddress;
         customTokenAddress = _customTokenAddress;
     }
 
-    ////////////////////////////////////////////
-    ///////////////  写入功能  //////////////////
-    ////////////////////////////////////////////
+    //Write Func：
     //设定结束时间
     function setEndTime(uint256 _newTime) external onlyOwner {
         if (_newTime < block.timestamp) revert SetLater();
         endTime = _newTime;
     }
-
-    // //重制每日限定购买额度, 需要每日定时触发
-    // function resetDailyAmount() external onlyOwner {
-    //     if (dailyPurchasedAmount == 0) revert AmountZero();
-    //     dailyPurchasedAmount = 0;
-    // }
 
     //设定初始账号,用这个地址开始进行推广
     function setFirstUser() external onlyOwner {
@@ -185,10 +156,6 @@ contract IDO is Ownable, ReentrancyGuard {
 
     //ido
     function ido(uint256 amount) external payable nonReentrant Bound NotEnd {
-        // //限额 DAILYAMOUNT
-        // if (amount + dailyPurchasedAmount > DAILYAMOUNT * IDOPRICE)
-        //     revert InsufficientAmount();
-
         //购买后的总已购额度不可超过总额度
         if (amount + purchasedAmount > TOTALAMOUNT * IDOPRICE)
             revert InsufficientAmount();
@@ -218,8 +185,6 @@ contract IDO is Ownable, ReentrancyGuard {
         participantNumber += 1;
         //已购金额+amount
         purchasedAmount += amount;
-        // //今日已购金额+amount
-        // dailyPurchasedAmount += amount;
         //事件
         emit idoSuc(msg.sender, amount);
     }
@@ -258,28 +223,16 @@ contract IDO is Ownable, ReentrancyGuard {
         emit ownerWithdraw(customToken.balanceOf(address(this)));
     }
 
-    ////////////////////////////////////////////
-    ///////////////  读取功能  //////////////////
-    ////////////////////////////////////////////
+    //Read Func：
     //获取总额度
     function getTotalAmount() public view returns (uint256) {
         return TOTALAMOUNT;
     }
 
-    // //获取每日限额
-    // function getDailyAmount() public view returns (uint256) {
-    //     return DAILYAMOUNT;
-    // }
-
     //获取已购买额度
     function getPurchasedAmount() public view returns (uint256) {
         return purchasedAmount;
     }
-
-    // //获取今日已购买额度
-    // function getDailyPurchasedAmount() public view returns (uint256) {
-    //     return dailyPurchasedAmount;
-    // }
 
     //获取单价
     function getIdoPrice() public view returns (uint256) {
@@ -292,7 +245,7 @@ contract IDO is Ownable, ReentrancyGuard {
     }
 
     //通过用户钱包地址获取用户信息
-    function getStructViaAdd(
+    function getInfoViaAddress(
         address _participant
     ) public view returns (Participant memory) {
         return addressToParticipant[_participant];
