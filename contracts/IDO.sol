@@ -145,7 +145,7 @@ contract IDO is Ownable, ReentrancyGuard {
             })
         );
         //保存映射
-        addressToParticipant[msg.sender] = participant[participant.length];
+        addressToParticipant[msg.sender] = participant[participant.length - 1]; //长度不足？
         //事件
         emit bindSuc(
             msg.sender,
@@ -242,6 +242,11 @@ contract IDO is Ownable, ReentrancyGuard {
     //获取参与人数
     function getParticipantNumber() public view returns (uint256) {
         return participantNumber;
+    }
+
+    //获取用户数组长度
+    function getLength() public view returns (uint256) {
+        return participant.length;
     }
 
     //通过用户钱包地址获取用户信息
