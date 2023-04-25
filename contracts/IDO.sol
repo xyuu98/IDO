@@ -145,7 +145,7 @@ contract IDO is Ownable, ReentrancyGuard {
             })
         );
         //保存映射
-        addressToParticipant[msg.sender] = participant[participant.length - 1]; //长度不足？
+        addressToParticipant[msg.sender] = participant[participant.length - 1];
         //事件
         emit bindSuc(
             msg.sender,
