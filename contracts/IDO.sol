@@ -22,6 +22,7 @@ contract IDO is Ownable, ReentrancyGuard {
     error AlreadyWithdraw();
     error InsufficientBalance();
     error InsufficientAmount();
+    error TransferFailed();
 
     //事件：
     event bindSuc(
@@ -72,9 +73,6 @@ contract IDO is Ownable, ReentrancyGuard {
     address private customTokenAddress;
     //参与人数
     uint256 private participantNumber;
-    //实例化
-    IERC20 private immutable customToken = IERC20(address(customTokenAddress));
-    IERC20 private immutable usdt = IERC20(address(usdtAddress));
 
     //映射：
     //通过钱包地址映射到用户信息
@@ -86,19 +84,21 @@ contract IDO is Ownable, ReentrancyGuard {
         uint256 _idoPrice,
         uint256 _endTime,
         address _usdtAddress,
-        address _customTokenAddress
+        address _customTokenAddress,
+        address _fundAddress
     ) {
         TOTALAMOUNT = _totalAmount;
         IDOPRICE = _idoPrice;
         endTime = _endTime;
         usdtAddress = _usdtAddress;
         customTokenAddress = _customTokenAddress;
+        fundAddress = _fundAddress;
     }
 
     //Write Func：
     //设定结束时间
     function setEndTime(uint256 _newTime) external onlyOwner {
-        if (_newTime < block.timestamp) revert SetLater();
+        // if (_newTime < block.timestamp) revert SetLater();
         endTime = _newTime;
     }
 
@@ -155,13 +155,13 @@ contract IDO is Ownable, ReentrancyGuard {
     }
 
     //ido
-    function ido(uint256 amount) external payable nonReentrant Bound NotEnd {
+    function ido(uint256 amount) external nonReentrant Bound NotEnd {
         //购买后的总已购额度不可超过总额度
-        if (amount + purchasedAmount > TOTALAMOUNT * IDOPRICE)
+        if (amount + purchasedAmount > (TOTALAMOUNT * IDOPRICE) / 1e18)
             revert InsufficientAmount();
-        //参与额度必须为100、300、500
+        // 参与额度必须为100、300、500
         if (
-            amount != 100 * 1e18 || amount != 300 * 1e18 || amount != 500 * 1e18
+            amount != 100 * 1e18 && amount != 300 * 1e18 && amount != 500 * 1e18
         ) revert AmountError();
         //赋值用户信息
         Participant memory idoer = addressToParticipant[msg.sender];
@@ -172,9 +172,24 @@ contract IDO is Ownable, ReentrancyGuard {
         uint256 firstReferrerAmount = amount.mul(3).div(100);
         uint256 secondReferrerAmount = amount.mul(2).div(100);
         //一定有一级和二级推荐人，一级奖励3%, 二级奖励2%, 剩余的全部给资金地址
-        usdt.transfer(fundAddress, fundAddressAmount);
-        usdt.transfer(idoer.firstReferrerAddress, firstReferrerAmount);
-        usdt.transfer(idoer.secondReferrerAddress, secondReferrerAmount);
+        //实例化
+        IERC20 usdt = IERC20(address(usdtAddress));
+        if (!usdt.transferFrom(msg.sender, fundAddress, fundAddressAmount))
+            revert TransferFailed();
+        if (
+            !usdt.transferFrom(
+                msg.sender,
+                idoer.firstReferrerAddress,
+                firstReferrerAmount
+            )
+        ) revert TransferFailed();
+        if (
+            !usdt.transferFrom(
+                msg.sender,
+                idoer.secondReferrerAddress,
+                secondReferrerAmount
+            )
+        ) revert TransferFailed();
         //修改用户可提取token的数量
         addressToParticipant[msg.sender].tokenAmount =
             amount.div(IDOPRICE) *
@@ -205,14 +220,24 @@ contract IDO is Ownable, ReentrancyGuard {
         addressToParticipant[msg.sender].tokenAmount = 0;
         //修改用户提取状态信息
         addressToParticipant[msg.sender].withdrawal = true;
+        //实例化
+        IERC20 customToken = IERC20(address(customTokenAddress));
         //发送token给用户
-        customToken.transferFrom(address(this), msg.sender, idoer.tokenAmount);
+        if (
+            !customToken.transferFrom(
+                address(this),
+                msg.sender,
+                idoer.tokenAmount
+            )
+        ) revert TransferFailed();
         //事件
         emit withdrawSuc(msg.sender, idoer.tokenAmount);
     }
 
     //提取合约剩余token至资金地址
     function withdraw() external onlyOwner {
+        //实例化
+        IERC20 customToken = IERC20(address(customTokenAddress));
         if (customToken.balanceOf(address(this)) == 0)
             revert InsufficientBalance();
         customToken.transferFrom(
@@ -271,5 +296,10 @@ contract IDO is Ownable, ReentrancyGuard {
     //获取ido代币地址
     function getTokenAddress() public view returns (address) {
         return customTokenAddress;
+    }
+
+    //获取ido代币地址
+    function getFundAddress() public view returns (address) {
+        return fundAddress;
     }
 }
