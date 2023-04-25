@@ -287,5 +287,34 @@ const { developmentChains } = require("../../helper-hardhat-config")
                   //   console.log(user3Balance)
                   //   console.log(fundBalance)
               })
+              it("after ido suc users info changed token amount", async () => {
+                  const idoAmount = ethers.utils.parseEther("100")
+                  await IDO.ido(idoAmount)
+                  const changedAmount = (
+                      await IDO.getInfoViaAddress(user2.address)
+                  ).tokenAmount.toString()
+                  assert.equal(changedAmount, idoAmount.mul(10).toString())
+              })
+              it("after ido suc users info changed ido bool", async () => {
+                  const idoAmount = ethers.utils.parseEther("100")
+                  await IDO.ido(idoAmount)
+                  const changedBoolIdo = (
+                      await IDO.getInfoViaAddress(user2.address)
+                  ).ido
+                  assert.equal(changedBoolIdo, true)
+              })
+              it("after ido suc users info changed participantNumber", async () => {
+                  const idoAmount = ethers.utils.parseEther("100")
+                  await IDO.ido(idoAmount)
+                  const participantNumber = await IDO.getParticipantNumber()
+                  assert.equal(participantNumber, 1)
+              })
+              it("after ido suc users info changed purchasedAmount", async () => {
+                  const idoAmount = ethers.utils.parseEther("100")
+                  await IDO.ido(idoAmount)
+                  const purchasedAmount = await IDO.getPurchasedAmount()
+                  assert.equal(purchasedAmount.toString(), idoAmount.toString())
+              })
           })
+          describe("5. withdraw", () => {})
       })
