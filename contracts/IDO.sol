@@ -7,23 +7,6 @@ import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
 import "@openzeppelin/contracts/utils/math/SafeMath.sol";
 
 contract IDO is Ownable, ReentrancyGuard {
-    //错误提示：
-    error InvalidAddress();
-    error AlreadyBound();
-    error NotBind();
-    error SetLater();
-    error AmountZero();
-    error Ended();
-    error NotEnded();
-    error CallerIsNotUser();
-    error AmountError();
-    error AlreadyIDO();
-    error NotIDO();
-    error AlreadyWithdraw();
-    error InsufficientBalance();
-    error InsufficientAmount();
-    error TransferFailed();
-
     //事件：
     event bindSuc(
         address indexed participantself,
@@ -37,18 +20,20 @@ contract IDO is Ownable, ReentrancyGuard {
     //修饰器：
     //caller不可是合约
     modifier callerIsUser() {
-        if (tx.origin != msg.sender) revert CallerIsNotUser();
+        require(tx.origin == msg.sender, "CallerisNotUser");
         _;
     }
     //必须已绑定上级
     modifier Bound() {
-        if (addressToParticipant[msg.sender].firstReferrerAddress <= address(0))
-            revert NotBind();
+        require(
+            addressToParticipant[msg.sender].firstReferrerAddress > address(0),
+            "NotBind"
+        );
         _;
     }
     //结束无法使用
     modifier NotEnd() {
-        if (endTime < block.timestamp) revert Ended();
+        require(endTime >= block.timestamp, "Ended");
         _;
     }
 
@@ -98,7 +83,6 @@ contract IDO is Ownable, ReentrancyGuard {
     //Write Func：
     //设定结束时间
     function setEndTime(uint256 _newTime) external onlyOwner {
-        // if (_newTime < block.timestamp) revert SetLater();
         endTime = _newTime;
     }
 
@@ -123,15 +107,18 @@ contract IDO is Ownable, ReentrancyGuard {
         address _referrerAddress
     ) external callerIsUser NotEnd {
         //不可为空地址
-        if (_referrerAddress == address(0)) revert InvalidAddress();
+        require(_referrerAddress != address(0), "InvalidAddress");
         //caller必须没有绑定过上级, 即只能绑定一次
-        if (addressToParticipant[msg.sender].firstReferrerAddress > address(0))
-            revert AlreadyBound();
+        require(
+            addressToParticipant[msg.sender].firstReferrerAddress <= address(0),
+            "AlreadyBound"
+        );
         //输入的地址必须有上级
-        if (
-            addressToParticipant[_referrerAddress].firstReferrerAddress <=
-            address(0)
-        ) revert InvalidAddress();
+        require(
+            addressToParticipant[_referrerAddress].firstReferrerAddress >
+                address(0),
+            "InvalidAddress"
+        );
         //referrer为用户想要绑定上级的实例
         Participant memory referrer = addressToParticipant[_referrerAddress];
         //存入用户信息;绑定一级推荐人; 如果绑定的上级也存在上级，则二级推荐人也会绑定
@@ -157,16 +144,21 @@ contract IDO is Ownable, ReentrancyGuard {
     //ido
     function ido(uint256 amount) external nonReentrant Bound NotEnd {
         //购买后的总已购额度不可超过总额度
-        if (amount + purchasedAmount > (TOTALAMOUNT * IDOPRICE) / 1e18)
-            revert InsufficientAmount();
+        require(
+            amount + purchasedAmount <= (TOTALAMOUNT * IDOPRICE) / 1e18,
+            "InsufficientAmount"
+        );
         // 参与额度必须为100、300、500
-        if (
-            amount != 100 * 1e18 && amount != 300 * 1e18 && amount != 500 * 1e18
-        ) revert AmountError();
+        require(
+            amount == 100 * 1e18 ||
+                amount == 300 * 1e18 ||
+                amount == 500 * 1e18,
+            "AmountError"
+        );
         //赋值用户信息
         Participant memory idoer = addressToParticipant[msg.sender];
         //参与者ido状态必须为false,即一个用户只能参与一次ido
-        if (idoer.ido == true) revert AlreadyIDO();
+        require(idoer.ido == false, "AlreadyIDO");
         //发送usdt的比例
         uint256 fundAddressAmount = amount.mul(95).div(100);
         uint256 firstReferrerAmount = amount.mul(3).div(100);
@@ -174,22 +166,26 @@ contract IDO is Ownable, ReentrancyGuard {
         //一定有一级和二级推荐人，一级奖励3%, 二级奖励2%, 剩余的全部给资金地址
         //实例化
         IERC20 usdt = IERC20(address(usdtAddress));
-        if (!usdt.transferFrom(msg.sender, fundAddress, fundAddressAmount))
-            revert TransferFailed();
-        if (
-            !usdt.transferFrom(
+        require(
+            usdt.transferFrom(msg.sender, fundAddress, fundAddressAmount),
+            "TransferFailed1"
+        );
+        require(
+            usdt.transferFrom(
                 msg.sender,
                 idoer.firstReferrerAddress,
                 firstReferrerAmount
-            )
-        ) revert TransferFailed();
-        if (
-            !usdt.transferFrom(
+            ),
+            "TransferFailed2"
+        );
+        require(
+            usdt.transferFrom(
                 msg.sender,
                 idoer.secondReferrerAddress,
                 secondReferrerAmount
-            )
-        ) revert TransferFailed();
+            ),
+            "TransferFailed3"
+        );
         //修改用户可提取token的数量
         addressToParticipant[msg.sender].tokenAmount =
             amount.div(IDOPRICE) *
@@ -207,15 +203,15 @@ contract IDO is Ownable, ReentrancyGuard {
     //用户提取token
     function tokenWithdraw() external nonReentrant Bound {
         //ido结束才可提取
-        if (endTime > block.timestamp) revert NotEnded();
+        require(endTime <= block.timestamp, "NotEnded");
         //赋值用户信息
         Participant memory idoer = addressToParticipant[msg.sender];
         //要求用户参与ido
-        if (idoer.ido == false) revert NotIDO();
+        require(idoer.ido == true, "NotIDO");
         //要求用户未提取过token
-        if (idoer.withdrawal == true) revert AlreadyWithdraw();
+        require(idoer.withdrawal == false, "AlreadyWithdraw");
         //tokenAmount不为0
-        if (idoer.tokenAmount == 0) revert InsufficientBalance();
+        require(idoer.tokenAmount != 0, "InsufficientBalance");
         //修改用户token数量信息
         addressToParticipant[msg.sender].tokenAmount = 0;
         //修改用户提取状态信息
@@ -223,8 +219,10 @@ contract IDO is Ownable, ReentrancyGuard {
         //实例化
         IERC20 customToken = IERC20(address(customTokenAddress));
         //发送token给用户
-        if (!customToken.transfer(msg.sender, idoer.tokenAmount))
-            revert TransferFailed();
+        require(
+            customToken.transfer(msg.sender, idoer.tokenAmount),
+            "TransferFailed4"
+        );
         //事件
         emit withdrawSuc(msg.sender, idoer.tokenAmount);
     }
@@ -233,8 +231,10 @@ contract IDO is Ownable, ReentrancyGuard {
     function withdraw() external onlyOwner {
         //实例化
         IERC20 customToken = IERC20(address(customTokenAddress));
-        if (customToken.balanceOf(address(this)) == 0)
-            revert InsufficientBalance();
+        require(
+            customToken.balanceOf(address(this)) != 0,
+            "InsufficientBalance"
+        );
         customToken.transfer(fundAddress, customToken.balanceOf(address(this)));
         emit ownerWithdraw(customToken.balanceOf(address(this)));
     }
