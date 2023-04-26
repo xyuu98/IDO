@@ -10,8 +10,8 @@ module.exports = async ({ getNamedAccounts, deployments }) => {
 
     //Deploy
     if (!developmentChains.includes(network.name)) {
-        let initialSupply = networkConfig[chainId]["initialSupply"]
         log("Deploying MockCustomToken and waiting for confirmations...")
+        let initialSupply = networkConfig[chainId]["initialSupply"]
         await deploy("MockCustomToken", {
             from: deployer,
             args: [initialSupply],
@@ -22,15 +22,14 @@ module.exports = async ({ getNamedAccounts, deployments }) => {
             "MockCustomToken",
             deployer
         )
+        let tokenAddress = MockCustomToken.address
         log(`MockCustomToken deployed at ${MockCustomToken.address}`)
 
-        // let tokenAddress = networkConfig[chainId]["tokenAddress"]
         let totalAmount = networkConfig[chainId]["totalAmount"]
-        // let limitedAmount = networkConfig[chainId]["limitedAmount"]
         let price = networkConfig[chainId]["price"]
         let endTime = networkConfig[chainId]["endTime"]
         let usdtAddress = networkConfig[chainId]["usdtAddress"]
-        let tokenAddress = MockCustomToken.address
+        let fundAddress = networkConfig[chainId]["fundAddress"]
 
         log("----------------------------------------------------")
         log("Deploying IDO and waiting for confirmations...")
@@ -38,11 +37,11 @@ module.exports = async ({ getNamedAccounts, deployments }) => {
             from: deployer,
             args: [
                 totalAmount,
-                /*limitedAmount,*/
                 price,
                 endTime,
                 usdtAddress,
                 tokenAddress,
+                fundAddress,
             ],
             log: true,
             waitConfirmations: network.config.blockConfirmations || 1,
@@ -55,19 +54,24 @@ module.exports = async ({ getNamedAccounts, deployments }) => {
         // await MockCustomToken.transfer(IDO.address, totalAmount)
         // log("Transfer MockCustomToken succssed!")
     } else {
+        let initialSupply = networkConfig[chainId]["initialSupply"]
+        let totalAmount = networkConfig[chainId]["totalAmount"]
+        let price = networkConfig[chainId]["price"]
+        let endTime = networkConfig[chainId]["endTime"]
+        let fundAddress = networkConfig[chainId]["fundAddress"]
+
         log("Deploying MockUSDT and waiting for confirmations...")
         await deploy("MockUSDT", {
             from: deployer,
-            args: [],
+            args: [initialSupply],
             log: true,
             waitConfirmations: network.config.blockConfirmations || 1,
         })
         const MockUSDT = await ethers.getContract("MockUSDT", deployer)
-        log(`MockUSDT deployed at ${MockUSDT.address}`)
-        log("----------------------------------------------------")
         let MockUSDTAddress = MockUSDT.address
+        log(`MockUSDT deployed at ${MockUSDT.address}`)
 
-        let initialSupply = networkConfig[chainId]["initialSupply"]
+        log("----------------------------------------------------")
         log("Deploying MockCustomToken and waiting for confirmations...")
         await deploy("MockCustomToken", {
             from: deployer,
@@ -79,12 +83,8 @@ module.exports = async ({ getNamedAccounts, deployments }) => {
             "MockCustomToken",
             deployer
         )
-        log(`MockCustomToken deployed at ${MockCustomToken.address}`)
-        let totalAmount = networkConfig[chainId]["totalAmount"]
-        // let limitedAmount = networkConfig[chainId]["limitedAmount"]
-        let price = networkConfig[chainId]["price"]
-        let endTime = networkConfig[chainId]["endTime"]
         let tokenAddress = MockCustomToken.address
+        log(`MockCustomToken deployed at ${MockCustomToken.address}`)
 
         log("----------------------------------------------------")
         log("Deploying IDO and waiting for confirmations...")
@@ -92,27 +92,16 @@ module.exports = async ({ getNamedAccounts, deployments }) => {
             from: deployer,
             args: [
                 totalAmount,
-                /*limitedAmount,*/
                 price,
                 endTime,
                 MockUSDTAddress,
                 tokenAddress,
+                fundAddress,
             ],
             log: true,
             waitConfirmations: network.config.blockConfirmations || 1,
         })
         log(`IDO deployed at ${IDO.address}`)
-
-        // log("----------------------------------------------------")
-        // log("Transfer token to IDO contract...")
-        // //Transfer token to IDO contract
-        // await MockCustomToken.transfer(IDO.address, totalAmount)
-        // log("Transfer MockCustomToken succssed!")
-        // log("----------------------------------------------------")
-        // log("Transfer MockUSDT to IDO contract...")
-        // //Transfer MockUSDT to IDO contract
-        // await MockUSDT.transfer(IDO.address, initialSupply)
-        // log("Transfer MockUSDT succssed!")
     }
 
     //Verify
@@ -124,11 +113,11 @@ module.exports = async ({ getNamedAccounts, deployments }) => {
         await verify(MockCustomToken.address, [initialSupply])
         await verify(IDO.address, [
             totalAmount,
-            /*limitedAmount,*/
             price,
             endTime,
             usdtAddress,
             tokenAddress,
+            fundAddress,
         ])
     }
     if (
@@ -139,11 +128,11 @@ module.exports = async ({ getNamedAccounts, deployments }) => {
         await verify(MockCustomToken.address, [initialSupply])
         await verify(IDO.address, [
             totalAmount,
-            /*limitedAmount,*/
             price,
             endTime,
             usdtAddress,
             tokenAddress,
+            fundAddress,
         ])
     }
 }
