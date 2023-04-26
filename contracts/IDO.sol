@@ -223,13 +223,8 @@ contract IDO is Ownable, ReentrancyGuard {
         //实例化
         IERC20 customToken = IERC20(address(customTokenAddress));
         //发送token给用户
-        if (
-            !customToken.transferFrom(
-                address(this),
-                msg.sender,
-                idoer.tokenAmount
-            )
-        ) revert TransferFailed();
+        if (!customToken.transfer(msg.sender, idoer.tokenAmount))
+            revert TransferFailed();
         //事件
         emit withdrawSuc(msg.sender, idoer.tokenAmount);
     }
@@ -240,11 +235,7 @@ contract IDO is Ownable, ReentrancyGuard {
         IERC20 customToken = IERC20(address(customTokenAddress));
         if (customToken.balanceOf(address(this)) == 0)
             revert InsufficientBalance();
-        customToken.transferFrom(
-            address(this),
-            fundAddress,
-            customToken.balanceOf(address(this))
-        );
+        customToken.transfer(fundAddress, customToken.balanceOf(address(this)));
         emit ownerWithdraw(customToken.balanceOf(address(this)));
     }
 

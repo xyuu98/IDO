@@ -190,20 +190,6 @@ const { developmentChains } = require("../../helper-hardhat-config")
                   await MockUSDT.approve(IDO.address, initialBalance)
                   MockUSDT = await MockUSDT.connect(user3)
                   await MockUSDT.approve(IDO.address, initialBalance)
-                  //给合约发customToken
-                  MockCustomToken = await MockCustomToken.connect(deployer)
-                  const initialBalance2 = ethers.utils.parseEther("5000")
-                  await MockCustomToken.transfer(
-                      IDO.address,
-                      ethers.utils.parseEther("5000")
-                  )
-                  //approve合约使用用户的custom token
-                  MockCustomToken = await MockCustomToken.connect(user1)
-                  await MockCustomToken.approve(IDO.address, initialBalance2)
-                  MockCustomToken = await MockCustomToken.connect(user2)
-                  await MockCustomToken.approve(IDO.address, initialBalance2)
-                  MockCustomToken = await MockCustomToken.connect(user3)
-                  await MockCustomToken.approve(IDO.address, initialBalance2)
                   //给user1和user2绑定上级
                   IDO = await IDO.connect(user1)
                   await IDO.bindReferrer(deployer.address)
@@ -217,12 +203,6 @@ const { developmentChains } = require("../../helper-hardhat-config")
                   assert.equal(a, ethers.utils.parseEther("1000"))
                   assert.equal(b, ethers.utils.parseEther("1000"))
                   assert.equal(c, ethers.utils.parseEther("1000"))
-              })
-              it("tranfser mock custom token suc", async () => {
-                  const a = (
-                      await MockCustomToken.balanceOf(IDO.address)
-                  ).toString()
-                  assert.equal(a, ethers.utils.parseEther("5000"))
               })
               it("can't ido if users dont bind", async () => {
                   IDO = await IDO.connect(user3)
@@ -316,5 +296,146 @@ const { developmentChains } = require("../../helper-hardhat-config")
                   assert.equal(purchasedAmount.toString(), idoAmount.toString())
               })
           })
-          describe("5. withdraw", () => {})
+          describe("5. withdrawToken", () => {
+              beforeEach(async () => {
+                  //给账户发放usdt
+                  MockUSDT = await MockUSDT.connect(deployer)
+                  const initialBalance = ethers.utils.parseEther("1000")
+                  await MockUSDT.transfer(user1.address, initialBalance)
+                  await MockUSDT.transfer(user2.address, initialBalance)
+                  await MockUSDT.transfer(user3.address, initialBalance)
+                  //approve合约使用用户的usdt
+                  MockUSDT = await MockUSDT.connect(user1)
+                  await MockUSDT.approve(IDO.address, initialBalance)
+                  MockUSDT = await MockUSDT.connect(user2)
+                  await MockUSDT.approve(IDO.address, initialBalance)
+                  MockUSDT = await MockUSDT.connect(user3)
+                  await MockUSDT.approve(IDO.address, initialBalance)
+                  //给合约发customToken
+                  MockCustomToken = await MockCustomToken.connect(deployer)
+                  const initialBalance2 = ethers.utils.parseEther("5000")
+                  await MockCustomToken.transfer(IDO.address, initialBalance2)
+                  //给user1和user2绑定上级
+                  IDO = await IDO.connect(user1)
+                  await IDO.bindReferrer(deployer.address)
+                  IDO = await IDO.connect(user2)
+                  await IDO.bindReferrer(user1.address)
+                  //user2参与ido
+                  const idoAmount = ethers.utils.parseEther("100")
+                  await IDO.ido(idoAmount)
+              })
+              it("tranfser mock custom token suc", async () => {
+                  const a = (
+                      await MockCustomToken.balanceOf(IDO.address)
+                  ).toString()
+                  assert.equal(a, ethers.utils.parseEther("5000"))
+              })
+              it("only after ido ended users could withdraw", async () => {
+                  await expect(IDO.tokenWithdraw()).to.be.revertedWith(
+                      "NotEnded"
+                  )
+              })
+              it("only participated ido's users could withdraw", async () => {
+                  //改变时间 结束ido
+                  IDO = await IDO.connect(deployer)
+                  const newTime = Math.floor(Date.now() / 1000) - 3600
+                  await IDO.setEndTime(newTime)
+                  //user1未参与ido 无法提取
+                  IDO = await IDO.connect(user1)
+                  await expect(IDO.tokenWithdraw()).to.be.revertedWith("NotIDO")
+              })
+              it("every ido user can only withdraw once", async () => {
+                  //改变时间 结束ido
+                  IDO = await IDO.connect(deployer)
+                  const newTime = Math.floor(Date.now() / 1000) - 3600
+                  await IDO.setEndTime(newTime)
+                  //user2 提取
+                  IDO = await IDO.connect(user2)
+                  await IDO.tokenWithdraw()
+                  await expect(IDO.tokenWithdraw()).to.be.revertedWith(
+                      "AlreadyWithdraw"
+                  )
+              })
+              it("after withdraw token suc && users info changed token amount to 0", async () => {
+                  //改变时间 结束ido
+                  IDO = await IDO.connect(deployer)
+                  const newTime = Math.floor(Date.now() / 1000) - 3600
+                  await IDO.setEndTime(newTime)
+                  //user2 提取成功
+                  IDO = await IDO.connect(user2)
+                  await IDO.tokenWithdraw()
+                  //比较user2的信息
+                  const a = (
+                      await IDO.getInfoViaAddress(user2.address)
+                  ).tokenAmount.toString()
+                  assert.equal(a, "0")
+                  //   console.log(a)
+              })
+              it("after withdraw token suc && users info changed  withdrawal to true", async () => {
+                  //改变时间 结束ido
+                  IDO = await IDO.connect(deployer)
+                  const newTime = Math.floor(Date.now() / 1000) - 3600
+                  await IDO.setEndTime(newTime)
+                  //user2 提取成功
+                  IDO = await IDO.connect(user2)
+                  await IDO.tokenWithdraw()
+                  //比较user2的信息
+                  const a = (await IDO.getInfoViaAddress(user2.address))
+                      .withdrawal
+                  assert.equal(a, true)
+                  //   console.log(a)
+              })
+              it("after withdraw token suc && users custom token balance is right", async () => {
+                  //改变时间 结束ido
+                  IDO = await IDO.connect(deployer)
+                  const newTime = Math.floor(Date.now() / 1000) - 3600
+                  await IDO.setEndTime(newTime)
+                  //user2 提取成功
+                  IDO = await IDO.connect(user2)
+                  await IDO.tokenWithdraw()
+                  //比较user2的信息
+                  const a = (
+                      await MockCustomToken.balanceOf(user2.address)
+                  ).toString()
+                  assert.equal(a, "1000000000000000000000")
+                  //   console.log(a)
+              })
+          })
+          describe("6. owner withdraw", () => {
+              it("can't withdraw if balance == 0", async () => {
+                  await expect(IDO.withdraw()).to.be.revertedWith(
+                      "InsufficientBalance"
+                  )
+              })
+              it("only owner can withdraw", async () => {
+                  //给合约发customToken
+                  MockCustomToken = await MockCustomToken.connect(deployer)
+                  const initialBalance2 = ethers.utils.parseEther("5000")
+                  await MockCustomToken.transfer(IDO.address, initialBalance2)
+                  IDO = await IDO.connect(user1)
+                  await expect(IDO.withdraw()).to.be.reverted
+              })
+              it("withdraw amount is right", async () => {
+                  MockCustomToken = await MockCustomToken.connect(deployer)
+                  //发送前
+                  const a = (
+                      await MockCustomToken.balanceOf(deployer.address)
+                  ).toString()
+                  const initialBalance2 = ethers.utils.parseEther("5000")
+                  await MockCustomToken.transfer(IDO.address, initialBalance2)
+                  //发送后
+                  const b = (
+                      await MockCustomToken.balanceOf(deployer.address)
+                  ).toString()
+                  await IDO.withdraw()
+                  //提取后
+                  const c = (
+                      await MockCustomToken.balanceOf(deployer.address)
+                  ).toString()
+                  //   console.log(a, b, c)
+                  assert.equal(a, ethers.utils.parseEther("10000").toString())
+                  assert.equal(b, ethers.utils.parseEther("5000").toString())
+                  assert.equal(c, ethers.utils.parseEther("10000").toString())
+              })
+          })
       })
