@@ -153,3 +153,5 @@ yarn format
 If you appreciated this, feel free to follow me or donate!
 
 ETH/Polygon/BSC/etc Address: 0xc45b0D6c9d184e8630f94C5Ee43BF765B5b4Aee9
+
+[![Carmelo Yuan Twitter](https://img.shields.io/badge/Twitter-1DA1F2?style=for-the-badge&logo=twitter&logoColor=white)](https://twitter.com/CarmeloY98)
