@@ -6,6 +6,7 @@
     "description": "IDO contract via hardhat",
     "scripts": {
         "test": "hardhat test",
+        "test:staging": "hardhat test --network bsctest",
         "lint": "solhint 'contracts/**/*.sol'",
         "lint:fix": "solhint 'contracts/**/*.sol' --fix",
         "format": "prettier --write .",
