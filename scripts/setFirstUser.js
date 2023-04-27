@@ -1,0 +1,18 @@
+const { ethers, getNamedAccounts } = require("hardhat")
+
+async function main() {
+    const { deployer } = await getNamedAccounts()
+    const IDO = await ethers.getContract("IDO", deployer)
+    console.log(`Got contract IDO at ${IDO.address}`)
+    console.log("setFirstUser...")
+    const transactionResponse = await IDO.setFirstUser()
+    await transactionResponse.wait()
+    console.log("setFirstUser suc!")
+}
+
+main()
+    .then(() => process.exit(0))
+    .catch((error) => {
+        console.error(error)
+        process.exit(1)
+    })

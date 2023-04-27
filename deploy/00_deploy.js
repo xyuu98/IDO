@@ -53,6 +53,38 @@ module.exports = async ({ getNamedAccounts, deployments }) => {
         // log("Transfer token to IDO contract...")
         // await MockCustomToken.transfer(IDO.address, totalAmount)
         // log("Transfer MockCustomToken succssed!")
+
+        //Verify
+        if (
+            !developmentChains.includes(network.name) &&
+            (chainId == 11155111 || chainId == 1) &&
+            process.env.ETHERSCAN_API_KEY
+        ) {
+            await verify(MockCustomToken.address, [initialSupply])
+            await verify(IDO.address, [
+                totalAmount,
+                price,
+                endTime,
+                usdtAddress,
+                tokenAddress,
+                fundAddress,
+            ])
+        }
+        if (
+            !developmentChains.includes(network.name) &&
+            (chainId == 97 || chainId == 56) &&
+            process.env.BSCSCAN_API_KEY
+        ) {
+            await verify(MockCustomToken.address, [initialSupply])
+            await verify(IDO.address, [
+                totalAmount,
+                price,
+                endTime,
+                usdtAddress,
+                tokenAddress,
+                fundAddress,
+            ])
+        }
     } else {
         let initialSupply = networkConfig[chainId]["initialSupply"]
         let totalAmount = networkConfig[chainId]["totalAmount"]
@@ -102,38 +134,6 @@ module.exports = async ({ getNamedAccounts, deployments }) => {
             waitConfirmations: network.config.blockConfirmations || 1,
         })
         log(`IDO deployed at ${IDO.address}`)
-    }
-
-    //Verify
-    if (
-        !developmentChains.includes(network.name) &&
-        (chainId == 11155111 || chainId == 1) &&
-        process.env.ETHERSCAN_API_KEY
-    ) {
-        await verify(MockCustomToken.address, [initialSupply])
-        await verify(IDO.address, [
-            totalAmount,
-            price,
-            endTime,
-            usdtAddress,
-            tokenAddress,
-            fundAddress,
-        ])
-    }
-    if (
-        !developmentChains.includes(network.name) &&
-        (chainId == 97 || chainId == 56) &&
-        process.env.BSCSCAN_API_KEY
-    ) {
-        await verify(MockCustomToken.address, [initialSupply])
-        await verify(IDO.address, [
-            totalAmount,
-            price,
-            endTime,
-            usdtAddress,
-            tokenAddress,
-            fundAddress,
-        ])
     }
 }
 
