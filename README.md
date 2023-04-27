@@ -68,11 +68,21 @@ You'll want to set your `ChainName_RPC_URL` and `PRIVATE_KEY` as environment var
     -   You can [learn how to export it here](https://support.metamask.io/hc/en-us/articles/360015289632-How-to-Export-an-Account-Private-Key).
 -   `ChainName_RPC_URL`: This is url of the testnet node you're working with. You can get setup with one for free from [Alchemy](https://www.alchemy.com/)
 
-2. Get testnet BNB
+2. Config helper-hardhat-config.js
+   You'll want to set your chains `totalAmount`, `price`,`endTime`,`usdtAddress`,`initialSupply` and `fundAddress` as network-config. You can change these values in `helper-hardhat-config.js`.
+
+-   `totalAmount`: Configure the total number of tokens for IDO
+-   `price`: Configure the unit price of each token, in USDT
+-   `endTime`: Configure the end time of IDO
+-   `usdtAddress`: Configure the USDT contract address of the chosen chain
+-   `initialSupply`: Configure the total number of tokens
+-   `fundAddress`: Configure the address for IDO to send USDT
+
+3. Get testnet BNB
 
 Head over to [BNB-Smart-Chain Faucet](https://testnet.bnbchain.org/faucet-smart) and get some tesnet BNB. You should see the BNB show up in your metamask.
 
-3. Deploy
+4. Deploy
 
 ```
 yarn hardhat deploy --network bsctest
